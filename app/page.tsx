@@ -3,6 +3,16 @@
 import ProductCard from './components/ProductCard';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+
+interface ProductRow {
+  id: number;
+  title: string | null;
+  price: number | null;
+  image_url: string | null;
+  created_at: string;
+  category: string | null;
+}
 
 interface Product {
   id: number;
@@ -22,136 +32,26 @@ const categories = [
   '스포츠/레저',
   '게임/취미',
   '도서/티켓/음반',
-];
-
-const sampleProducts: Product[] = [
-  {
-    id: 1,
-    title: '아이폰 15 Pro Max 256GB',
-    price: 1500000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    category: '디지털기기',
-  },
-  {
-    id: 2,
-    title: '맥북 프로 14인치 M3',
-    price: 2500000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    category: '디지털기기',
-  },
-  {
-    id: 3,
-    title: '에어팟 프로 2세대',
-    price: 350000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    category: '디지털기기',
-  },
-  {
-    id: 4,
-    title: '갤럭시 S24 울트라 512GB',
-    price: 1400000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '디지털기기',
-  },
-  {
-    id: 5,
-    title: '아이패드 프로 12.9인치',
-    price: 1200000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '디지털기기',
-  },
-  {
-    id: 6,
-    title: '닌텐도 스위치 OLED',
-    price: 450000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '게임/취미',
-  },
-  {
-    id: 7,
-    title: '한샘 원목 식탁 세트',
-    price: 380000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '가구/인테리어',
-  },
-  {
-    id: 8,
-    title: '필립스 스팀다리미',
-    price: 90000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '생활가전',
-  },
-  {
-    id: 9,
-    title: '코베아 캠핑 의자 2p',
-    price: 120000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '스포츠/레저',
-  },
-  {
-    id: 10,
-    title: '헬리녹스 캠핑 테이블',
-    price: 150000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '스포츠/레저',
-  },
-  {
-    id: 11,
-    title: '무선 청소기 LG 코드제로',
-    price: 280000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '생활가전',
-  },
-  {
-    id: 12,
-    title: '미니멀 주방 수납장',
-    price: 250000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '생활/주방',
-  },
-  {
-    id: 13,
-    title: '미니멀리즘 인테리어 도서 세트',
-    price: 45000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '도서/티켓/음반',
-  },
-  {
-    id: 14,
-    title: '슬림 러닝머신',
-    price: 320000,
-    imageUrl: null,
-    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    category: '스포츠/레저',
-  },
+  '식품',
 ];
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [visibleCount, setVisibleCount] = useState(6);
   const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const products = useMemo(() => sampleProducts, []);
   const filteredProducts = useMemo(() => {
     return products.filter(
       (product) =>
         selectedCategory === '전체' || product.category === selectedCategory,
     );
   }, [products, selectedCategory]);
-  const visibleProducts = filteredProducts.slice(0, visibleCount);
+  const visibleProducts = useMemo(() => {
+    return filteredProducts.slice(0, visibleCount);
+  }, [filteredProducts, visibleCount]);
 
   const handleSelectCategory = (category: string) => {
     setSelectedCategory(category);
@@ -162,13 +62,103 @@ export default function Home() {
     setVisibleCount((prev) => prev + 3);
   }, []);
 
-  const handleToggleFavorite = (id: number) => {
-    setFavoriteIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
+  const handleToggleFavorite = async (id: number) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+
+    const isFavorite = favoriteIds.includes(id);
+
+    if (isFavorite) {
+      // Remove from favorites
+      const { error } = await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('product_id', id);
+
+      if (error) {
+        console.error('Error removing favorite:', error);
+        return;
+      }
+
+      setFavoriteIds((prev) => prev.filter((item) => item !== id));
+    } else {
+      // Add to favorites
+      const { error } = await supabase
+        .from('favorites')
+        .insert({ user_id: user.id, product_id: id });
+
+      if (error) {
+        console.error('Error adding favorite:', error);
+        return;
+      }
+
+      setFavoriteIds((prev) => [...prev, id]);
+    }
   };
 
   const canLoadMore = visibleProducts.length < filteredProducts.length;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchData = async () => {
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      // Fetch Products
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('id,title,price,image_url,created_at,category')
+        .order('created_at', { ascending: false });
+
+      if (!isMounted) return;
+
+      if (productsError) {
+        console.error('Failed to fetch products', productsError);
+        setProducts([]);
+        setErrorMessage('상품을 불러오는 중 문제가 발생했습니다.');
+        setIsLoading(false);
+        return;
+      }
+
+      const normalizedProducts =
+        (productsData as ProductRow[] | null)?.map((product) => ({
+          id: product.id,
+          title: product.title ?? '이름 없는 상품',
+          price: product.price ?? 0,
+          imageUrl: product.image_url,
+          createdAt: product.created_at ?? new Date().toISOString(),
+          category: product.category ?? '기타',
+        })) ?? [];
+
+      setProducts(normalizedProducts);
+
+      // Fetch Favorites (if logged in)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: favoritesData, error: favoritesError } = await supabase
+          .from('favorites')
+          .select('product_id')
+          .eq('user_id', user.id);
+
+        if (!favoritesError && favoritesData) {
+          setFavoriteIds(favoritesData.map((f: any) => f.product_id));
+        }
+      }
+
+      setIsLoading(false);
+    };
+
+    fetchData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!canLoadMore) {
@@ -211,11 +201,10 @@ export default function Home() {
                   key={category}
                   type="button"
                   onClick={() => handleSelectCategory(category)}
-                  className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-orange-500 border-orange-500 text-white shadow'
-                      : 'bg-white border-gray-200 text-gray-700 hover:border-orange-400'
-                  }`}
+                  className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${isActive
+                    ? 'bg-orange-500 border-orange-500 text-white shadow'
+                    : 'bg-white border-gray-200 text-gray-700 hover:border-orange-400'
+                    }`}
                 >
                   {category}
                 </button>
@@ -223,7 +212,27 @@ export default function Home() {
             })}
           </div>
         </div>
-        {visibleProducts.length === 0 ? (
+        {errorMessage && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {errorMessage}
+          </div>
+        )}
+        {isLoading ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={`skeleton-${index}`}
+                className="animate-pulse rounded-lg border border-gray-200 bg-white p-4"
+              >
+                <div className="mb-4 aspect-square rounded-md bg-gray-100" />
+                <div className="mb-2 h-5 w-20 rounded-full bg-gray-100" />
+                <div className="mb-2 h-5 w-full rounded bg-gray-100" />
+                <div className="mb-2 h-5 w-2/3 rounded bg-gray-100" />
+                <div className="h-4 w-24 rounded bg-gray-100" />
+              </div>
+            ))}
+          </div>
+        ) : visibleProducts.length === 0 ? (
           <div className="rounded-lg border border-dashed border-gray-200 bg-white py-16 text-center text-gray-500">
             선택한 카테고리에 등록된 상품이 없습니다.
           </div>

@@ -34,3 +34,30 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Supabase Setup
+
+1. 환경 변수 추가  
+   `.env.local` 파일에 아래 값을 채워주세요.
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=...
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+   # (선택) 샘플 데이터 스크립트용 서비스 키
+   SUPABASE_SERVICE_ROLE_KEY=...
+   ```
+
+2. 테이블 스키마 생성  
+   Supabase SQL Editor에서 실행합니다.
+   ```
+   create table if not exists public.products (
+     id bigint generated always as identity primary key,
+     title text not null,
+     price numeric not null,
+     image_url text,
+     category text not null default '기타',
+     created_at timestamptz not null default timezone('utc', now())
+   );
+   ```
+
+3. 더미 데이터 채우기  
+   `supabase/products_seed.sql` 파일을 SQL Editor에 붙여넣거나 CLI로 실행하면 동일한 더미 데이터가 upsert 됩니다.
