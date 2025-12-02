@@ -3,6 +3,7 @@
 import ProductCard from './components/ProductCard';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 interface ProductRow {
@@ -12,6 +13,7 @@ interface ProductRow {
   image_url: string | null;
   created_at: string;
   category: string | null;
+  status: string | null;
 }
 
 interface Product {
@@ -21,6 +23,7 @@ interface Product {
   imageUrl: string | null;
   createdAt: string;
   category: string;
+  status?: string;
 }
 
 const categories = [
@@ -37,24 +40,43 @@ const categories = [
 
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('전체');
+  const [selectedStatus, setSelectedStatus] = useState('전체'); // New status filter
   const [visibleCount, setVisibleCount] = useState(6);
   const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
   const filteredProducts = useMemo(() => {
-    return products.filter(
-      (product) =>
-        selectedCategory === '전체' || product.category === selectedCategory,
-    );
-  }, [products, selectedCategory]);
+    return products.filter((product) => {
+      // Category filter
+      const categoryMatch = selectedCategory === '전체' || product.category === selectedCategory;
+
+      // Status filter
+      let statusMatch = true;
+      if (selectedStatus === '거래중') {
+        statusMatch = !product.status || product.status === 'selling';
+      } else if (selectedStatus === '거래완료') {
+        statusMatch = product.status === 'sold';
+      }
+      // '전체' means no status filter
+
+      return categoryMatch && statusMatch;
+    });
+  }, [products, selectedCategory, selectedStatus]);
+
   const visibleProducts = useMemo(() => {
     return filteredProducts.slice(0, visibleCount);
   }, [filteredProducts, visibleCount]);
 
   const handleSelectCategory = (category: string) => {
     setSelectedCategory(category);
+    setVisibleCount(6);
+  };
+
+  const handleSelectStatus = (status: string) => {
+    setSelectedStatus(status);
     setVisibleCount(6);
   };
 
@@ -112,7 +134,7 @@ export default function Home() {
       // Fetch Products
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('id,title,price,image_url,created_at,category')
+        .select('id,title,price,image_url,created_at,category,status')
         .order('created_at', { ascending: false });
 
       if (!isMounted) return;
@@ -133,6 +155,7 @@ export default function Home() {
           imageUrl: product.image_url,
           createdAt: product.created_at ?? new Date().toISOString(),
           category: product.category ?? '기타',
+          status: product.status ?? 'selling',
         })) ?? [];
 
       setProducts(normalizedProducts);
@@ -193,6 +216,28 @@ export default function Home() {
           <h1 className="text-2xl font-bold text-gray-900">
             최근 등록된 상품
           </h1>
+
+          {/* Status Filter */}
+          <div className="flex gap-2 border-b border-gray-200">
+            {['전체', '거래중', '거래완료'].map((status) => {
+              const isActive = selectedStatus === status;
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => handleSelectStatus(status)}
+                  className={`px-4 py-2 text-sm font-medium transition-all border-b-2 ${isActive
+                    ? 'border-orange-500 text-orange-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                  {status}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Category Filter */}
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => {
               const isActive = selectedCategory === category;

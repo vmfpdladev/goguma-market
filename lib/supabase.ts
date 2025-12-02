@@ -13,6 +13,14 @@ if (!supabaseAnonKey) {
   throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
-// Supabase 클라이언트 생성
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Supabase 클라이언트 생성 with session persistence
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    storageKey: 'goguma-market-auth',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
 
